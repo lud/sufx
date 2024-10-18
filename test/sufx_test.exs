@@ -49,17 +49,6 @@ defmodule SufxTest do
              {:element, :radon}
            ]) == sort(Sufx.find_values(tree, "an"))
 
-    Sufx.find_values(tree, "a") |> dbg()
-    Sufx.find_values(tree, "pp") |> dbg()
-    Sufx.find_values(tree, "ao") |> dbg()
-    Sufx.find_values(tree, "on") |> dbg()
-    Sufx.find_values(tree, "ee") |> dbg()
-    Sufx.find_values(tree, "ae") |> dbg()
-    Sufx.find_values(tree, "aa") |> dbg()
-    Sufx.find_values(tree, "n") |> dbg()
-    Sufx.find_values(tree, "nn") |> dbg()
-    Sufx.find_values(tree, "na") |> dbg()
-
     :erts_debug.flat_size(tree) |> IO.inspect(label: "tree size")
   end
 end
