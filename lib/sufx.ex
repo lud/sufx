@@ -71,14 +71,18 @@ defmodule Sufx do
 
   def find_values(tree, phrase) do
     graphemes = to_graphemes(phrase)
-    match_graphemes(tree, graphemes, [])
+    # match_graphemes(tree, graphemes, [])
+    match_graphemes_compat(tree, graphemes, [])
   end
 
-  defp match_graphemes(tree, [h | t] = gs, acc) do
-    Enum.reduce(tree, acc, fn
-      {:values, _values}, acc2 -> acc2
-      {^h, subtree}, acc2 -> match_graphemes(subtree, t, acc2)
-      {_, subtree}, acc2 -> match_graphemes(subtree, gs, acc2)
+  IO.warn("@todo benchmark optimize vs not optimize")
+  IO.warn("@todo also benchmark with function that does not handle list keys")
+
+  defp match_graphemes(tree, [h | t] = gs, acc_in) do
+    Enum.reduce(tree, acc_in, fn
+      {:values, _values}, acc -> acc
+      {^h, subtree}, acc -> match_graphemes(subtree, t, acc)
+      {_, subtree}, acc -> match_graphemes(subtree, gs, acc)
     end)
   end
 
@@ -86,10 +90,65 @@ defmodule Sufx do
     collect_values(tree, acc)
   end
 
+  defp match_graphemes_compat(tree, [h | t] = gs, acc_in) do
+    Enum.reduce(tree, acc_in, fn
+      {:values, _values}, acc ->
+        acc
+
+      {^h, subtree}, acc ->
+        match_graphemes_compat(subtree, t, acc)
+
+      {list, subtree}, acc when is_list(list) ->
+        match_graphemes_klist(list, subtree, gs, acc)
+
+      {_, subtree}, acc ->
+        match_graphemes_compat(subtree, gs, acc)
+    end)
+  end
+
+  defp match_graphemes_compat(tree, [], acc) do
+    collect_values(tree, acc)
+  end
+
+  defp match_graphemes_klist([h | kt], subtree, [h | t], acc) do
+    match_graphemes_klist(kt, subtree, t, acc)
+  end
+
+  defp match_graphemes_klist([_ | kt], subtree, gs, acc) do
+    match_graphemes_klist(kt, subtree, gs, acc)
+  end
+
+  defp match_graphemes_klist([], subtree, gs, acc) do
+    match_graphemes_compat(subtree, gs, acc)
+  end
+
   defp collect_values(tree, acc) do
     Enum.reduce(tree, acc, fn
       {:values, values}, acc2 -> values ++ acc2
       {_, subtree}, acc2 -> collect_values(subtree, acc2)
+    end)
+  end
+
+  @doc "Replace levels with a single child to list map keys."
+
+  # general case, more than one key
+  def optimize(tree) do
+    Map.new(tree, fn
+      {:values, _} = term ->
+        term
+
+      {k, v} ->
+        case optimize(v) do
+          %{values: _} = sub ->
+            {k, sub}
+
+          sub when map_size(sub) == 1 ->
+            [{next_k, v}] = Map.to_list(sub)
+            {[k | List.wrap(next_k)], v}
+
+          sub ->
+            {k, sub}
+        end
     end)
   end
 end
