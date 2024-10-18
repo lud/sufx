@@ -34,24 +34,25 @@ defmodule SufxTest do
         ]
       ]
       |> Enum.flat_map(fn {category, words} ->
-        Enum.map(words, fn word -> {word, {category, word}} end)
+        Enum.map(words, fn word -> {word, {category, String.to_atom(word)}} end)
       end)
 
     tree = Sufx.tree(data)
 
     assert sort(
-             fruit: "banana",
-             fruit: "orange",
-             fruit: "dragonfruit",
-             location: "orange county",
-             element: "carbon",
-             element: "radon"
+             fruit: :banana,
+             fruit: :orange,
+             fruit: :dragonfruit,
+             location: :"orange county",
+             element: :carbon,
+             element: :radon
            ) == sort(Sufx.find_values(tree, "an"))
   end
 
   test "create from words - optimize" do
     data =
       [
+        special: ["", ""],
         fruit: [
           "banana",
           "apple",
@@ -76,19 +77,19 @@ defmodule SufxTest do
         ]
       ]
       |> Enum.flat_map(fn {category, words} ->
-        Enum.map(words, fn word -> {word, {category, word}} end)
+        Enum.map(words, fn word -> {word, {category, String.to_atom(word)}} end)
       end)
 
     tree = Sufx.tree(data)
     tree = Sufx.optimize(tree)
 
     assert sort(
-             fruit: "banana",
-             fruit: "orange",
-             fruit: "dragonfruit",
-             location: "orange county",
-             element: "carbon",
-             element: "radon"
+             fruit: :banana,
+             fruit: :orange,
+             fruit: :dragonfruit,
+             location: :"orange county",
+             element: :carbon,
+             element: :radon
            ) == sort(Sufx.find_values(tree, "an"))
   end
 end

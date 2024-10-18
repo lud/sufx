@@ -1,5 +1,5 @@
 defmodule Sufx do
-  @space " "
+  @space <<32>>
   @ws [
     "\u0009",
     "\u000A",
@@ -77,6 +77,10 @@ defmodule Sufx do
 
   IO.warn("@todo benchmark optimize vs not optimize")
   IO.warn("@todo also benchmark with function that does not handle list keys")
+
+  IO.warn(
+    "@todo add score by proximity: 'an' matches 'orange' with score=1, 'banana' with score=2"
+  )
 
   defp match_graphemes(tree, [h | t] = gs, acc_in) do
     Enum.reduce(tree, acc_in, fn
