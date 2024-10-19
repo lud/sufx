@@ -19,7 +19,9 @@ defmodule Sufx.MixProject do
 
   defp deps do
     [
-      {:benchee, "~> 1.0", only: :dev}
+      {:benchee, "~> 1.0", only: :dev},
+      {:credo, "~> 1.7", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.4", only: :dev, runtime: false}
     ]
   end
 end

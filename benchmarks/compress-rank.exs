@@ -3,18 +3,37 @@ source_data =
   |> File.read!()
   |> String.split("\n")
 
+{most_common_grapheme, _} =
+  source_data
+  |> Enum.map(&(&1 |> Sufx.to_graphemes() |> Enum.frequencies()))
+  |> Enum.reduce(&Map.merge(&1, &2, fn _, a, b -> a + b end))
+  |> Map.to_list()
+  |> Enum.sort_by(&elem(&1, 1), :desc)
+  |> hd()
+
 sufx = Enum.reduce(source_data, Sufx.new(), fn word, sufx -> Sufx.insert(sufx, word, word) end)
 
 compressed_sufx = Sufx.compress(sufx)
 
+without_ranks = fn list ->
+  # Do not accept ranking of zero
+  Enum.map(list, fn {v, rank} when rank > 0 -> v end)
+end
+
 # Verify that all functions return the same result, possibly in different order
 check_same_results = fn search ->
   import ExUnit.Assertions
-  a = Sufx.find_values(sufx, search)
-  b = Sufx.find_values(sufx, search)
-  c = Sufx.find_values(Sufx.compress(sufx), search)
+  a = Sufx.search(sufx, search)
+  b = Sufx.search(sufx, search)
+  c = Sufx.search(compressed_sufx, search)
+  # ranked
+  d = Sufx.search_ranked(sufx, search)
+  e = Sufx.search_ranked(compressed_sufx, search)
   assert Enum.sort(a) == Enum.sort(b)
   assert Enum.sort(a) == Enum.sort(c)
+  assert Enum.sort(a) == Enum.sort(without_ranks.(d))
+  assert Enum.sort(a) == Enum.sort(without_ranks.(e))
+  assert Enum.sort(d) == Enum.sort(e)
   a
 end
 
@@ -45,23 +64,26 @@ input_129 = "pre"
 found_129 = check_same_results.(input_129)
 129 = length(found_129)
 
-# length(Sufx.find_values(sufx, "aoe") |> dbg())  |> dbg()
+# length(Sufx.search(sufx, "aoe") |> dbg())  |> dbg()
 
 Benchee.run(
   %{
-    "nocompress" => fn search -> Sufx.find_values(sufx, search) end,
-    "compressed" => fn search -> Sufx.find_values(compressed_sufx, search) end
+    "nocompress" => fn search -> Sufx.search(sufx, search) end,
+    "rankd/nocp" => fn search -> Sufx.search_ranked(sufx, search) end,
+    "compressed" => fn search -> Sufx.search(compressed_sufx, search) end,
+    "rankd/comp" => fn search -> Sufx.search_ranked(compressed_sufx, search) end
   },
   pre_check: true,
   warmup: 1,
   time: 2,
-  memory_time: 1,
+  memory_time: 0,
   inputs: %{
     "input_129" => input_129,
     "input_22" => input_22,
     "input_26" => input_26,
     "input_97" => input_97,
     "input_none" => input_none,
-    "input_one" => input_one
+    "input_one" => input_one,
+    "most_common_grapheme" => most_common_grapheme
   }
 )
