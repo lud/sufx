@@ -1,4 +1,6 @@
 defmodule Sufx do
+  defstruct tree: nil, compressed?: false
+
   @space <<32>>
   @ws [
     "\u0009",
@@ -33,16 +35,28 @@ defmodule Sufx do
     "\u3000",
     "\uFEFF"
   ]
+
+  def new(), do: %__MODULE__{tree: tree()}
   # a token is a tuple with {phrase :: binary, value :: term}
-  def tree(tokens) do
-    Enum.reduce(tokens, tree(), fn token, tree ->
-      {phrase, value} = token
-      graphemes = to_graphemes(phrase)
-      add_graphemes(tree, graphemes, value)
-    end)
+  def new(tokens) do
+    tree =
+      Enum.reduce(tokens, tree(), fn {phrase, value}, tree ->
+        _insert(tree, phrase, value)
+      end)
+
+    %__MODULE__{tree: tree}
   end
 
-  def tree(), do: %{}
+  defp tree, do: %{}
+
+  def insert(%__MODULE__{tree: tree} = sufx, phrase, value) do
+    %{sufx | tree: _insert(tree, phrase, value)}
+  end
+
+  defp _insert(tree, phrase, value) do
+    graphemes = to_graphemes(phrase)
+    add_graphemes(tree, graphemes, value)
+  end
 
   def to_graphemes(phrase) do
     phrase
@@ -69,24 +83,24 @@ defmodule Sufx do
 
   defp add_graphemes(tree, [], value), do: Map.update(tree, :values, [value], &[value | &1])
 
-  def find_values(tree, phrase) do
+  def find_values(sufx, phrase) do
     graphemes = to_graphemes(phrase)
-    # match_graphemes(tree, graphemes, [])
-    match_graphemes_compat(tree, graphemes, [])
-  end
 
-  IO.warn("@todo benchmark optimize vs not optimize")
-  IO.warn("@todo also benchmark with function that does not handle list keys")
+    case sufx.compressed? do
+      true -> match_graphemes_comp(sufx.tree, graphemes, [])
+      false -> match_graphemes(sufx.tree, graphemes, [])
+    end
+  end
 
   IO.warn(
     "@todo add score by proximity: 'an' matches 'orange' with score=1, 'banana' with score=2"
   )
 
-  defp match_graphemes(tree, [h | t] = gs, acc_in) do
+  defp match_graphemes(tree, [h | t] = search, acc_in) do
     Enum.reduce(tree, acc_in, fn
       {:values, _values}, acc -> acc
       {^h, subtree}, acc -> match_graphemes(subtree, t, acc)
-      {_, subtree}, acc -> match_graphemes(subtree, gs, acc)
+      {_, subtree}, acc -> match_graphemes(subtree, search, acc)
     end)
   end
 
@@ -94,23 +108,23 @@ defmodule Sufx do
     collect_values(tree, acc)
   end
 
-  defp match_graphemes_compat(tree, [h | t] = gs, acc_in) do
+  defp match_graphemes_comp(tree, [h | t] = search, acc_in) do
     Enum.reduce(tree, acc_in, fn
       {:values, _values}, acc ->
         acc
 
       {^h, subtree}, acc ->
-        match_graphemes_compat(subtree, t, acc)
+        match_graphemes_comp(subtree, t, acc)
 
       {list, subtree}, acc when is_list(list) ->
-        match_graphemes_klist(list, subtree, gs, acc)
+        match_graphemes_klist(list, subtree, search, acc)
 
       {_, subtree}, acc ->
-        match_graphemes_compat(subtree, gs, acc)
+        match_graphemes_comp(subtree, search, acc)
     end)
   end
 
-  defp match_graphemes_compat(tree, [], acc) do
+  defp match_graphemes_comp(tree, [], acc) do
     collect_values(tree, acc)
   end
 
@@ -118,12 +132,12 @@ defmodule Sufx do
     match_graphemes_klist(kt, subtree, t, acc)
   end
 
-  defp match_graphemes_klist([_ | kt], subtree, gs, acc) do
-    match_graphemes_klist(kt, subtree, gs, acc)
+  defp match_graphemes_klist([_ | kt], subtree, search, acc) do
+    match_graphemes_klist(kt, subtree, search, acc)
   end
 
-  defp match_graphemes_klist([], subtree, gs, acc) do
-    match_graphemes_compat(subtree, gs, acc)
+  defp match_graphemes_klist([], subtree, search, acc) do
+    match_graphemes_comp(subtree, search, acc)
   end
 
   defp collect_values(tree, acc) do
@@ -136,13 +150,17 @@ defmodule Sufx do
   @doc "Replace levels with a single child to list map keys."
 
   # general case, more than one key
-  def optimize(tree) do
+  def compress(%__MODULE__{compressed?: false} = sufx) do
+    %{sufx | compressed?: true, tree: _compress(sufx.tree)}
+  end
+
+  defp _compress(tree) do
     Map.new(tree, fn
       {:values, _} = term ->
         term
 
       {k, v} ->
-        case optimize(v) do
+        case _compress(v) do
           %{values: _} = sub ->
             {k, sub}
 

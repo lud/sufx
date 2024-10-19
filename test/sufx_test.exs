@@ -37,7 +37,7 @@ defmodule SufxTest do
         Enum.map(words, fn word -> {word, {category, String.to_atom(word)}} end)
       end)
 
-    tree = Sufx.tree(data)
+    tree = Sufx.new(data)
 
     assert sort(
              fruit: :banana,
@@ -49,7 +49,7 @@ defmodule SufxTest do
            ) == sort(Sufx.find_values(tree, "an"))
   end
 
-  test "create from words - optimize" do
+  test "create from words - compress" do
     data =
       [
         special: ["", ""],
@@ -80,8 +80,9 @@ defmodule SufxTest do
         Enum.map(words, fn word -> {word, {category, String.to_atom(word)}} end)
       end)
 
-    tree = Sufx.tree(data)
-    tree = Sufx.optimize(tree)
+    tree = Sufx.new(data)
+    tree = Sufx.compress(tree)
+    assert true == tree.compressed?
 
     assert sort(
              fruit: :banana,
