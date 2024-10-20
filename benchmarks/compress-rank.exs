@@ -15,9 +15,9 @@ sufx = Enum.reduce(source_data, Sufx.new(), fn word, sufx -> Sufx.insert(sufx, w
 
 compressed_sufx = Sufx.compress(sufx)
 
-without_ranks = fn list ->
-  # Do not accept ranking of zero
-  Enum.map(list, fn {v, rank} when rank > 0 -> v end)
+without_scores = fn list ->
+  # Do not accept scoring of zero
+  Enum.map(list, fn {v, score} when score > 0 -> v end)
 end
 
 # Verify that all functions return the same result, possibly in different order
@@ -26,13 +26,13 @@ check_same_results = fn search ->
   a = Sufx.search(sufx, search)
   b = Sufx.search(sufx, search)
   c = Sufx.search(compressed_sufx, search)
-  # ranked
-  d = Sufx.search_ranked(sufx, search)
-  e = Sufx.search_ranked(compressed_sufx, search)
+  # score
+  d = Sufx.search_score(sufx, search)
+  e = Sufx.search_score(compressed_sufx, search)
   assert Enum.sort(a) == Enum.sort(b)
   assert Enum.sort(a) == Enum.sort(c)
-  assert Enum.sort(a) == Enum.sort(without_ranks.(d))
-  assert Enum.sort(a) == Enum.sort(without_ranks.(e))
+  assert Enum.sort(a) == Enum.sort(without_scores.(d))
+  assert Enum.sort(a) == Enum.sort(without_scores.(e))
   assert Enum.sort(d) == Enum.sort(e)
   a
 end
@@ -69,9 +69,9 @@ found_129 = check_same_results.(input_129)
 Benchee.run(
   %{
     "nocompress" => fn search -> Sufx.search(sufx, search) end,
-    "rankd/nocp" => fn search -> Sufx.search_ranked(sufx, search) end,
+    "scored/nocp" => fn search -> Sufx.search_score(sufx, search) end,
     "compressed" => fn search -> Sufx.search(compressed_sufx, search) end,
-    "rankd/comp" => fn search -> Sufx.search_ranked(compressed_sufx, search) end
+    "scored/comp" => fn search -> Sufx.search_score(compressed_sufx, search) end
   },
   pre_check: true,
   warmup: 1,

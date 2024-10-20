@@ -2,7 +2,9 @@ defmodule Sufx do
   defstruct tree: nil, compressed?: false
 
   @type t :: %__MODULE__{tree: map, compressed?: boolean()}
-  @type tokens :: Enumerable.t({String.t(), term})
+  @type phrase :: String.t()
+  @type pattern :: String.t()
+  @type tokens :: Enumerable.t({phrase, term})
 
   @space <<32>>
   @ws [
@@ -39,9 +41,18 @@ defmodule Sufx do
     "\uFEFF"
   ]
 
+  @doc """
+  Creates an new, empty suffix tree.
+  """
   @spec new :: t
   def new, do: %__MODULE__{tree: tree()}
 
+  @doc """
+  Creates a new tree from tokens.
+
+  Tokens are phrase/value pairs where the phrase is a string and the value any
+  term.
+  """
   @spec new(tokens) :: t
   def new(tokens) do
     tree =
@@ -54,6 +65,11 @@ defmodule Sufx do
 
   defp tree, do: %{}
 
+  @doc """
+  Inserts a new phrase/value pair in an existing tree.
+
+  This function does not support compressed trees.
+  """
   @spec insert(t, String.t(), term) :: t
   def insert(%__MODULE__{compressed?: true}, _phrase, _value) do
     # Inserting in a compressed tree actually does work but leads to duplicated
@@ -73,6 +89,7 @@ defmodule Sufx do
     add_graphemes(tree, graphemes, value)
   end
 
+  @doc false
   @spec to_graphemes(String.t()) :: [String.grapheme()]
   def to_graphemes(phrase) do
     phrase
@@ -99,6 +116,13 @@ defmodule Sufx do
 
   defp add_graphemes(tree, [], value), do: Map.update(tree, :values, [value], &[value | &1])
 
+  @doc """
+  Compresses the given tree to a more memory and CPU efficient form.
+
+  While memory footprint is optimized, and searches will be faster, a compressed
+  tree does not support further insertion.
+  """
+  @spec compress(t) :: t
   def compress(%__MODULE__{compressed?: false} = sufx) do
     %{sufx | compressed?: true, tree: _compress(sufx.tree)}
   end
@@ -123,6 +147,10 @@ defmodule Sufx do
     end)
   end
 
+  @doc """
+  Returns the original tree before compression.
+  """
+  @spec decompress(t) :: t
   def decompress(%__MODULE__{compressed?: true} = sufx) do
     %{sufx | compressed?: false, tree: _decompress(sufx.tree)}
   end
@@ -136,14 +164,21 @@ defmodule Sufx do
     end)
   end
 
-  def search(sufx, phrase)
+  @doc """
+  Matches all phrases in the tree with the given pattern and return all values
+  associated with successfully matched phrases.
+
+  Returns an empty list if the given pattern is an empty string.
+  """
+  @spec search(t, pattern) :: [term]
+  def search(sufx, pattern)
 
   def search(_, "") do
     []
   end
 
-  def search(sufx, phrase) do
-    graphemes = to_graphemes(phrase)
+  def search(sufx, pattern) do
+    graphemes = to_graphemes(pattern)
 
     case sufx.compressed? do
       true -> match_graphemes_comp(sufx.tree, graphemes, [])
@@ -151,36 +186,51 @@ defmodule Sufx do
     end
   end
 
-  def search_ranked(sufx, phrase)
+  @doc """
+  This function has the same behaviour as `search/2` but the results are wrapped
+  in a tuple where the first element is the search result value and the second
+  element is the score.
 
-  def search_ranked(_, "") do
+  Note that the results are not ordered by score, and multiple results can have
+  the same score.
+
+  See `sort_by_score/1`.
+  """
+  @spec search_score(t, pattern) :: [{term, non_neg_integer}]
+  def search_score(sufx, pattern)
+
+  def search_score(_, "") do
     []
   end
 
-  def search_ranked(sufx, phrase) do
-    graphemes = to_graphemes(phrase)
+  def search_score(sufx, pattern) do
+    graphemes = to_graphemes(pattern)
 
     # temporary impl for benchmark
     case sufx.compressed? do
-      true -> match_graphemes_comp_rank(sufx.tree, graphemes, 0, 0, [])
-      false -> match_graphemes_rank(sufx.tree, graphemes, 0, 0, [])
+      true -> match_graphemes_comp_score(sufx.tree, graphemes, 0, 0, [])
+      false -> match_graphemes_score(sufx.tree, graphemes, 0, 0, [])
     end
   end
 
   @doc """
-  Returns the given list of ranked results sorted by descending rank order.
+  Returns the given list of scored results sorted by descending score order.
 
   Note that the order may slightly differ from an implementation with
   `Enum.sort_by/3` due to optimizations.
+
+  The function does nothing special and you are totally free to sort the results
+  in any other way.
   """
-  def sort_by_rank(results) do
+  @spec sort_by_score([{term, non_neg_integer}]) :: [{term, non_neg_integer}]
+  def sort_by_score(results) do
     # Depending on the sort algorithm, there can be different ordering if
-    # rankings are the same. Sorting ascending and reversing is not the same as
+    # scorings are the same. Sorting ascending and reversing is not the same as
     # sorting descending, given the same input list.
     #
     # In our case we do not care about preserving the orginal ordering between
-    # items with the same ranking, as this ordering comes from the ordering in
-    # the tree maps, which as for any map, should not be counted on.
+    # items with the same scoring, as this ordering comes from the ordering in
+    # the tree maps, which as for any map, should not be relied on.
     Enum.reverse(List.keysort(results, 1, :asc))
   end
 
@@ -198,18 +248,18 @@ defmodule Sufx do
     collect_values(tree, acc)
   end
 
-  # -- Ranking ----------------------------------------------------------------
+  # -- scoring ----------------------------------------------------------------
 
-  defp match_graphemes_rank(tree, [h | t] = search, streak, best, acc_in) do
+  defp match_graphemes_score(tree, [h | t] = search, streak, best, acc_in) do
     Enum.reduce(tree, acc_in, fn
       {:values, _values}, acc -> acc
-      {^h, subtree}, acc -> match_graphemes_rank(subtree, t, streak + 1, best, acc)
-      {_, subtree}, acc -> match_graphemes_rank(subtree, search, 0, max(best, streak), acc)
+      {^h, subtree}, acc -> match_graphemes_score(subtree, t, streak + 1, best, acc)
+      {_, subtree}, acc -> match_graphemes_score(subtree, search, 0, max(best, streak), acc)
     end)
   end
 
-  defp match_graphemes_rank(tree, [], streak, best, acc) do
-    collect_values_rank(tree, max(streak, best), acc)
+  defp match_graphemes_score(tree, [], streak, best, acc) do
+    collect_values_score(tree, max(streak, best), acc)
   end
 
   # -- Compressed -------------------------------------------------------------
@@ -246,46 +296,46 @@ defmodule Sufx do
     match_graphemes_comp(subtree, search, acc)
   end
 
-  # -- Compressed with ranking ------------------------------------------------
+  # -- Compressed with scoring ------------------------------------------------
 
-  defp match_graphemes_comp_rank(tree, [h | t] = search, streak, best, acc_in) do
+  defp match_graphemes_comp_score(tree, [h | t] = search, streak, best, acc_in) do
     Enum.reduce(tree, acc_in, fn
       {:values, _values}, acc ->
         acc
 
       {^h, subtree}, acc ->
-        match_graphemes_comp_rank(subtree, t, streak + 1, best, acc)
+        match_graphemes_comp_score(subtree, t, streak + 1, best, acc)
 
       {list, subtree}, acc when is_list(list) ->
-        match_graphemes_klist_rank(list, subtree, search, streak, best, acc)
+        match_graphemes_klist_score(list, subtree, search, streak, best, acc)
 
       {_, subtree}, acc ->
-        match_graphemes_comp_rank(subtree, search, 0, max(streak, best), acc)
+        match_graphemes_comp_score(subtree, search, 0, max(streak, best), acc)
     end)
   end
 
-  defp match_graphemes_comp_rank(tree, [], streak, best, acc) do
-    collect_values_rank(tree, max(streak, best), acc)
+  defp match_graphemes_comp_score(tree, [], streak, best, acc) do
+    collect_values_score(tree, max(streak, best), acc)
   end
 
-  defp match_graphemes_klist_rank(tree_keys, subtree, search, streak, best, acc)
+  defp match_graphemes_klist_score(tree_keys, subtree, search, streak, best, acc)
 
-  defp match_graphemes_klist_rank([h | kt], subtree, [h | t], streak, best, acc) do
-    match_graphemes_klist_rank(kt, subtree, t, streak + 1, best, acc)
+  defp match_graphemes_klist_score([h | kt], subtree, [h | t], streak, best, acc) do
+    match_graphemes_klist_score(kt, subtree, t, streak + 1, best, acc)
   end
 
-  defp match_graphemes_klist_rank([_ | kt], subtree, search, streak, best, acc) do
-    match_graphemes_klist_rank(kt, subtree, search, 0, max(streak, best), acc)
+  defp match_graphemes_klist_score([_ | kt], subtree, search, streak, best, acc) do
+    match_graphemes_klist_score(kt, subtree, search, 0, max(streak, best), acc)
   end
 
-  # additional clause in ranking code when search graphemes are exhausted when
+  # additional clause in scoring code when search graphemes are exhausted when
   # iteraring a compressed key.
-  defp match_graphemes_klist_rank(_, subtree, [], streak, best, acc) do
-    collect_values_rank(subtree, max(streak, best), acc)
+  defp match_graphemes_klist_score(_, subtree, [], streak, best, acc) do
+    collect_values_score(subtree, max(streak, best), acc)
   end
 
-  defp match_graphemes_klist_rank([], subtree, search, streak, best, acc) do
-    match_graphemes_comp_rank(subtree, search, streak, best, acc)
+  defp match_graphemes_klist_score([], subtree, search, streak, best, acc) do
+    match_graphemes_comp_score(subtree, search, streak, best, acc)
   end
 
   # -- Finalizers -------------------------------------------------------------
@@ -297,18 +347,18 @@ defmodule Sufx do
     end)
   end
 
-  defp collect_values_rank(tree, best, acc_in) do
+  defp collect_values_score(tree, best, acc_in) do
     Enum.reduce(tree, acc_in, fn
-      {:values, values}, acc -> with_ranks(values, best, acc)
-      {_, subtree}, acc -> collect_values_rank(subtree, best, acc)
+      {:values, values}, acc -> with_scores(values, best, acc)
+      {_, subtree}, acc -> collect_values_score(subtree, best, acc)
     end)
   end
 
-  defp with_ranks([v | vs], best, acc) do
-    with_ranks(vs, best, [{v, best} | acc])
+  defp with_scores([v | vs], best, acc) do
+    with_scores(vs, best, [{v, best} | acc])
   end
 
-  defp with_ranks([], _, acc) do
+  defp with_scores([], _, acc) do
     acc
   end
 end

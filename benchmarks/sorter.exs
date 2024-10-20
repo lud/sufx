@@ -7,12 +7,12 @@ defmodule Helper do
     |> Base.encode64()
   end
 
-  def random_rank do
+  def random_score do
     Enum.random(1..999_999)
   end
 
-  # return results with unique rankings. This is for not having to have
-  # different orderings for items with a common ranking. We do not want to
+  # return results with unique scorings. This is for not having to have
+  # different orderings for items with a common scoring. We do not want to
   # handle this case.
   def fake_results(n) do
     Enum.zip(
@@ -63,9 +63,9 @@ algos = %{
 for {_, input} <- inputs do
   sorts = Enum.map(algos, fn {_, algo} -> algo.(input) end)
 
-  # check Helper.fake_results, all generated rankings are unique, because our
-  # algos do not yield the same result for items with a common ranking. This is
-  # fine for us, so we avoid having common rankings for the benchmark.
+  # check Helper.fake_results, all generated scorings are unique, because our
+  # algos do not yield the same result for items with a common scoring. This is
+  # fine for us, so we avoid having common scorings for the benchmark.
   Enum.reduce(sorts, fn sort, prev ->
     Helper.assert_same_sort(prev, sort)
     sort

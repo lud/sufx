@@ -2131,7 +2131,7 @@ rail
 rain
 raise
 range
-rank
+score
 rapid
 rapidly
 rare

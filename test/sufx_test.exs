@@ -28,7 +28,7 @@ defmodule SufxTest do
   test "search for empty string will always return nothing" do
     tree = Sufx.new([{"some", :value}])
     assert [] = Sufx.search(tree, "")
-    assert [] = Sufx.search_ranked(tree, "")
+    assert [] = Sufx.search_score(tree, "")
   end
 
   test "create from words" do
@@ -132,8 +132,8 @@ defmodule SufxTest do
     |> Sufx.new()
   end
 
-  test "basic ranking" do
-    # Ranking is done by counting the highest streak of matches we find.
+  test "basic scoring" do
+    # scoring is done by counting the highest streak of matches we find.
     #
     # * "an" matches "banana" with a score of 2
     # * "an" matches "orange" with a score of 2
@@ -141,25 +141,25 @@ defmodule SufxTest do
     # * "cas" matches "crates" with a score of 1
     tree = compressed_words(~w(banana orange outcast crates))
 
-    assert [{"banana", 2}, {"orange", 2}] = sort(Sufx.search_ranked(tree, "an"))
+    assert [{"banana", 2}, {"orange", 2}] = sort(Sufx.search_score(tree, "an"))
   end
 
   test "first/last letter score is counted" do
     tree = compressed_words(~w(banjo orange ban))
 
-    assert [{"banjo", 1}, {"orange", 1}] = sort(Sufx.search_ranked(tree, "o"))
-    assert [{"ban", 2}, {"banjo", 2}, _] = sort(Sufx.search_ranked(tree, "an"))
+    assert [{"banjo", 1}, {"orange", 1}] = sort(Sufx.search_score(tree, "o"))
+    assert [{"ban", 2}, {"banjo", 2}, _] = sort(Sufx.search_score(tree, "an"))
   end
 
-  test "ranking subtrees" do
+  test "scoring subtrees" do
     tree = compressed_words(~w(banana banjo orange brain))
 
     assert [{"banana", 3}, {"banjo", 3}, {"brain", 1}] =
-             sort(Sufx.search_ranked(tree, "ban"))
+             sort(Sufx.search_score(tree, "ban"))
   end
 
-  test "no rank of zero" do
-    # When benchmarking we found a bug where "between" would be ranked zero with
+  test "no score of zero" do
+    # When benchmarking we found a bug where "between" would bescore zero with
     # search "bet".
     #
     # We could isolate the bug in this smaller version of the tree.
@@ -172,18 +172,18 @@ defmodule SufxTest do
 
     assert {"between", 3} =
              tree
-             |> Sufx.search_ranked("bet")
+             |> Sufx.search_score("bet")
              |> List.keyfind("between", 0)
   end
 
-  test "compare ranking compressed/not-compressed" do
+  test "compare scoring compressed/not-compressed" do
     runcase = fn words, search ->
       tree = uncompressed_words(words)
       comp_tree = Sufx.compress(tree)
-      ranks = Sufx.search_ranked(tree, search)
-      comp_ranks = Sufx.search_ranked(comp_tree, search)
-      assert ranks == comp_ranks
-      ranks
+      scores = Sufx.search_score(tree, search)
+      comp_scores = Sufx.search_score(comp_tree, search)
+      assert scores == comp_scores
+      scores
     end
 
     runcase.(["orange", "banana"], "an")
@@ -200,9 +200,9 @@ defmodule SufxTest do
     runcase.(["aaaxxxy", "aaaoooy"], "aay")
   end
 
-  test "sort_by_rank" do
+  test "sort_by_score" do
     assert [{"a", 100}, {"n", 50}, {"z", 3}] =
-             Sufx.sort_by_rank([{"n", 50}, {"z", 3}, {"a", 100}])
+             Sufx.sort_by_score([{"n", 50}, {"z", 3}, {"a", 100}])
   end
 
   test "inserting in compressed tree" do
@@ -218,17 +218,28 @@ defmodule SufxTest do
     # assert ["banana", "banjo"] = sort(Sufx.search(tree, "ban") )
   end
 
-  test "uncompress tree" do
+  test "decompress tree" do
     words = ~w(banana bananing orange banjo clear cards)
     tree = uncompressed_words(words)
     comp = compressed_words(words)
     assert tree == Sufx.decompress(comp)
   end
 
-  test "uncompress tree 3000 words" do
+  test "decompress tree 3000 words" do
     words = memo_english_words()
     tree = uncompressed_words(words)
     comp = compressed_words(words)
     assert tree == Sufx.decompress(comp)
+  end
+
+  test "duplicate key in tokens" do
+    tree = Sufx.new([{"aaa", :a1}, {"bbb", :b1}, {"aaa", :a2}])
+    assert [:a1, :a2] == sort(Sufx.search(tree, "a"))
+
+    comp = Sufx.compress(tree)
+    assert [:a1, :a2] == sort(Sufx.search(comp, "a"))
+
+    tree = Sufx.insert(tree, "bbb", :b2)
+    assert [:b1, :b2] == sort(Sufx.search(tree, "b"))
   end
 end
