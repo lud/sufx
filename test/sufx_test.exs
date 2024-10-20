@@ -2,6 +2,24 @@ defmodule SufxTest do
   use ExUnit.Case
   import Enum, only: [sort: 1]
 
+  defp memo_english_words do
+    pkey = :english_3000
+
+    case :persistent_term.get(pkey, nil) do
+      nil ->
+        words =
+          "benchmarks/english-3000.txt"
+          |> File.read!()
+          |> String.split("\n")
+
+        :ok = :persistent_term.put(pkey, words)
+        words
+
+      words ->
+        words
+    end
+  end
+
   test "normalize graphemes" do
     assert String.graphemes("elixir is cool") ==
              Sufx.to_graphemes("Elixir\u0085  \n\tis\u00A0cool")
@@ -146,9 +164,7 @@ defmodule SufxTest do
     #
     # We could isolate the bug in this smaller version of the tree.
     tree =
-      "benchmarks/english-3000.txt"
-      |> File.read!()
-      |> String.split("\n")
+      memo_english_words()
       |> Enum.sort()
       |> Enum.drop_while(&(&1 < "best"))
       |> Enum.take_while(&(&1 <= "between"))
@@ -193,12 +209,26 @@ defmodule SufxTest do
     tree = compressed_words(~w(banana orange))
 
     assert_raise ArgumentError, fn ->
-      Sufx.insert(tree, "banjo", "banjo") |> dbg()
+      Sufx.insert(tree, "banjo", "banjo")
     end
 
     # Not supported so far
     # refute is_map_key(tree.tree, "b")
     # assert is_map_key(tree.tree, ["b", "a", "n"])
     # assert ["banana", "banjo"] = sort(Sufx.search(tree, "ban") )
+  end
+
+  test "uncompress tree" do
+    words = ~w(banana bananing orange banjo clear cards)
+    tree = uncompressed_words(words)
+    comp = compressed_words(words)
+    assert tree == Sufx.decompress(comp)
+  end
+
+  test "uncompress tree 3000 words" do
+    words = memo_english_words()
+    tree = uncompressed_words(words)
+    comp = compressed_words(words)
+    assert tree == Sufx.decompress(comp)
   end
 end

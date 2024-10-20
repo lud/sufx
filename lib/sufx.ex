@@ -123,6 +123,19 @@ defmodule Sufx do
     end)
   end
 
+  def decompress(%__MODULE__{compressed?: true} = sufx) do
+    %{sufx | compressed?: false, tree: _decompress(sufx.tree)}
+  end
+
+  defp _decompress(tree) do
+    Map.new(tree, fn
+      {:values, _} = term -> term
+      {[h | []], v} -> {h, _decompress(v)}
+      {[h | k], v} -> {h, _decompress(%{k => v})}
+      {k, v} -> {k, _decompress(v)}
+    end)
+  end
+
   def search(sufx, phrase)
 
   def search(_, "") do
