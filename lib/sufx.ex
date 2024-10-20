@@ -1,4 +1,10 @@
 defmodule Sufx do
+  @moduledoc """
+  A generic string fuzzy matching utility.
+
+  Please see examples in the [readme file](readme.html).
+  """
+
   defstruct tree: nil, compressed?: false
 
   @type t :: %__MODULE__{tree: map, compressed?: boolean()}

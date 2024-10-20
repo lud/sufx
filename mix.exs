@@ -1,16 +1,19 @@
 defmodule Sufx.MixProject do
   use Mix.Project
 
+  @source_url "https://github.com/lud/sufx"
+
   def project do
     [
       app: :sufx,
+      name: "Sufx",
       version: "0.1.0",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      name: "Sufx",
-      source_url: "https://github.com/lud/sufx",
-      docs: docs()
+      source_url: @source_url,
+      docs: docs(),
+      package: package()
     ]
   end
 
@@ -32,5 +35,14 @@ defmodule Sufx.MixProject do
 
   defp docs do
     [main: "readme", extras: ["README.md"]]
+  end
+
+  defp package do
+    [
+      description: "A string fuzzy matching utility using suffix trees",
+      licenses: ["MIT"],
+      maintainers: ["Ludovic Demblans <ludovic@demblans.com>"],
+      links: %{"GitHub" => @source_url}
+    ]
   end
 end
