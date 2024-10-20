@@ -188,4 +188,17 @@ defmodule SufxTest do
     assert [{"a", 100}, {"n", 50}, {"z", 3}] =
              Sufx.sort_by_rank([{"n", 50}, {"z", 3}, {"a", 100}])
   end
+
+  test "inserting in compressed tree" do
+    tree = compressed_words(~w(banana orange))
+
+    assert_raise ArgumentError, fn ->
+      Sufx.insert(tree, "banjo", "banjo") |> dbg()
+    end
+
+    # Not supported so far
+    # refute is_map_key(tree.tree, "b")
+    # assert is_map_key(tree.tree, ["b", "a", "n"])
+    # assert ["banana", "banjo"] = sort(Sufx.search(tree, "ban") )
+  end
 end

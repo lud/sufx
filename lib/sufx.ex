@@ -55,8 +55,17 @@ defmodule Sufx do
   defp tree, do: %{}
 
   @spec insert(t, String.t(), term) :: t
-  def insert(%__MODULE__{tree: tree} = sufx, phrase, value) do
-    %{sufx | tree: _insert(tree, phrase, value)}
+  def insert(%__MODULE__{compressed?: true}, _phrase, _value) do
+    # Inserting in a compressed tree actually does work but leads to duplicated
+    # keys at the same level, one as head of the list key and one as a bare key.
+    #
+    # As long as we use maps as data storage we cannot support clean trees as we
+    # cannot match on map key [^head|_] only.
+    raise ArgumentError, "tried to insert value in compressed Sufx tree"
+  end
+
+  def insert(sufx, phrase, value) do
+    %__MODULE__{sufx | tree: _insert(sufx.tree, phrase, value)}
   end
 
   defp _insert(tree, phrase, value) do
@@ -166,8 +175,8 @@ defmodule Sufx do
 
   defp match_graphemes(tree, [h | t] = search, acc_in) do
     Enum.reduce(tree, acc_in, fn
-      {:values, _values}, acc -> acc
       {^h, subtree}, acc -> match_graphemes(subtree, t, acc)
+      {:values, _values}, acc -> acc
       {_, subtree}, acc -> match_graphemes(subtree, search, acc)
     end)
   end
