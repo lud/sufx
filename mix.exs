@@ -28,7 +28,7 @@ defmodule Sufx.MixProject do
       {:benchee, "~> 1.0", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: :dev, runtime: false},
       {:dialyxir, "~> 1.4", only: :dev, runtime: false},
-      {:doctor, "~> 0.21.0", only: :dev, runtime: false},
+      {:doctor, "~> 0.22.0", only: :dev, runtime: false},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
