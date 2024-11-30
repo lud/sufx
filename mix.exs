@@ -13,7 +13,8 @@ defmodule Sufx.MixProject do
       deps: deps(),
       source_url: @source_url,
       docs: docs(),
-      package: package()
+      package: package(),
+      dialyzer: dialyzer()
     ]
   end
 
@@ -43,6 +44,14 @@ defmodule Sufx.MixProject do
       licenses: ["MIT"],
       maintainers: ["Ludovic Demblans <ludovic@demblans.com>"],
       links: %{"GitHub" => @source_url}
+    ]
+  end
+
+  defp dialyzer do
+    [
+      flags: [:unmatched_returns, :error_handling, :unknown, :extra_return],
+      list_unused_filters: true,
+      plt_local_path: "_build/plts"
     ]
   end
 end
