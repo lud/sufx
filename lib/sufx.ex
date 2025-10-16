@@ -86,8 +86,8 @@ defmodule Sufx do
     raise ArgumentError, "tried to insert value in compressed Sufx tree"
   end
 
-  def insert(sufx, phrase, value) do
-    %__MODULE__{sufx | tree: _insert(sufx.tree, phrase, value)}
+  def insert(%__MODULE__{} = sufx, phrase, value) do
+    %{sufx | tree: _insert(sufx.tree, phrase, value)}
   end
 
   defp _insert(tree, phrase, value) do
