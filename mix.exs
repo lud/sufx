@@ -7,7 +7,7 @@ defmodule Sufx.MixProject do
     [
       app: :sufx,
       name: "Sufx",
-      version: "0.1.0",
+      version: "0.1.1",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
