@@ -27,10 +27,9 @@ defmodule Sufx.MixProject do
   defp deps do
     [
       {:benchee, "~> 1.0", only: :dev, runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:doctor, "~> 0.23.0", only: :dev, runtime: false},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
+      {:libdev, ">= 0.0.0", only: [:dev, :test], runtime: false},
+      {:readmix, ">= 0.0.0", only: [:dev, :test], runtime: false}
     ]
   end
 
